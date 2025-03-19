@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MKB Chat – Responsive KI-App</title>
+  <!-- Deine CSS-Links und -Styles bleiben unverändert -->
+</head>
+<body>
+  <div class="wrapper">
+    <!-- KI-Slider, Header, Chatbereich etc. – Dein HTML-Code -->
+    <main class="chat-area" id="chat-area">
+      <div class="chat-container" id="chat-container"></div>
+      <div class="input-area">
+        <input type="text" class="input-field" id="user-input" placeholder="Gib deine Nachricht ein..." />
+        <button id="send-button"><i class="fa-solid fa-paper-plane"></i> Senden</button>
+      </div>
+    </main>
+  </div>
+  
+  <!-- JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // Kein API-Key im Frontend – stattdessen ruft der Client unseren eigenen Backend-Endpunkt auf
+      const API_URL = "/api/chat"; // Relativer Pfad zum Backend-Proxy
+      
+      // (Weitere Konfiguration, Theme, KI-Auswahl etc. – siehe Deinen bestehenden Code)
+      
+      let conversation = [];
+      let currentModel = "MK+";
+      
+      // DOM-Elemente etc.
+      const els = {
+        chatContainer: document.getElementById("chat-container"),
+        userInput: document.getElementById("user-input"),
+        sendButton: document.getElementById("send-button")
+      };
+      
+      const appendMessage = (sender, content) => {
+        const msg = document.createElement("div");
+        msg.classList.add("chat-message", sender === "user" ? "user-message" : "ai-message");
+        msg.innerHTML = marked.parse(content);
+        els.chatContainer.appendChild(msg);
+        els.chatContainer.scrollTop = els.chatContainer.scrollHeight;
+      };
+
+      const showThinking = () => {
+        const think = document.createElement("div");
+        think.id = "thinking-message";
+        think.classList.add("chat-message", "ai-message", "thinking");
+        think.innerHTML = 'KI denkt <span class="ki-think"><span></span><span></span><span></span></span>';
+        els.chatContainer.appendChild(think);
+        els.chatContainer.scrollTop = els.chatContainer.scrollHeight;
+      };
+
+      const removeThinking = () => {
+        const think = document.getElementById("thinking-message");
+        if (think) think.remove();
+      };
+
+      // Aufruf an das eigene Backend
+      const callBackendAPI = async (conv, model) => {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model,
+              messages: conv.map(m => ({ role: m.role, content: m.content }))
+            })
+          });
+          const data = await res.json();
+          return data;
+        } catch (err) {
+          return { error: err.toString() };
+        }
+      };
+
+      const sendMessage = async () => {
+        const text = els.userInput.value.trim();
+        if (!text) {
+          alert("Bitte gib eine Nachricht ein!");
+          return;
+        }
+        
+        appendMessage("user", text);
+        conversation.push({ role: "user", content: text });
+        els.userInput.value = "";
+        
+        // Hier ggf. weitere Logik zur Modellwahl (wie z. B. bei MKR etc.)
+        showThinking();
+        const result = await callBackendAPI(conversation, modelMapping[currentModel] || currentModel);
+        removeThinking();
+        
+        if (result.text) {
+          appendMessage("ai", `<p>${result.text}</p>`);
+          conversation.push({ role: "assistant", content: result.text });
+        } else {
+          appendMessage("ai", `<p>Fehler: ${result.error}</p>`);
+        }
+      };
+      
+      els.sendButton.addEventListener("click", sendMessage);
+      els.userInput.addEventListener("keyup", e => { if (e.key === "Enter") sendMessage(); });
+      
+      // Weitere Event-Listener etc.
+    });
+  </script>
+</body>
+</html>
